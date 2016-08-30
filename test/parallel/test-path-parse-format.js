@@ -1,5 +1,5 @@
 'use strict';
-require('../common');
+const common = require('../common');
 const assert = require('assert');
 const path = require('path');
 
@@ -128,12 +128,11 @@ const trailingTests = [
 const failures = [];
 trailingTests.forEach(function(test) {
   const parse = test[0];
+  const os = parse === path.win32.parse ? 'win32' : 'posix';
   test[1].forEach(function(test) {
     const actual = parse(test[0]);
     const expected = test[1];
-    const fn = 'path.' +
-               (parse === path.win32.parse ? 'win32' : 'posix') +
-               '.parse(';
+    const fn = `path.${os}.parse(`;
     const message = fn +
                     JSON.stringify(test[0]) +
                     ')' +
@@ -170,7 +169,7 @@ function checkErrors(path) {
       return;
     }
 
-    assert.fail(null, null, 'should have thrown');
+    common.fail('should have thrown');
   });
 }
 

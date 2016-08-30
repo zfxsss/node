@@ -39,6 +39,7 @@
     'ubsan_vptr%': 0,
     'v8_target_arch%': '<(target_arch)',
     'v8_host_byteorder%': '<!(python -c "import sys; print sys.byteorder")',
+    'force_dynamic_crt%': 0,
     # Native Client builds currently use the V8 ARM JIT and
     # arm/simulator-arm.cc to defer the significant effort required
     # for NaCl JIT support. The nacl_target_arch variable provides
@@ -80,6 +81,9 @@
     # and 'target'. If you want to run v8 tests, it needs to be set to 'target'.
     # The setting is ignored if want_separate_host_toolset is 0.
     'v8_toolset_for_d8%': 'target',
+
+    # Control usage of a separate ignition snapshot file.
+    'v8_separate_ignition_snapshot%': 0,
 
     'host_os%': '<(OS)',
     'werror%': '-Werror',
@@ -1101,7 +1105,7 @@
           'VCCLCompilerTool': {
             'Optimization': '0',
             'conditions': [
-              ['component=="shared_library"', {
+              ['component=="shared_library" or force_dynamic_crt==1', {
                 'RuntimeLibrary': '3',  # /MDd
               }, {
                 'RuntimeLibrary': '1',  # /MTd
@@ -1153,7 +1157,7 @@
             'StringPooling': 'true',
             'BasicRuntimeChecks': '0',
             'conditions': [
-              ['component=="shared_library"', {
+              ['component=="shared_library" or force_dynamic_crt==1', {
                 'RuntimeLibrary': '3',  #/MDd
               }, {
                 'RuntimeLibrary': '1',  #/MTd
@@ -1284,7 +1288,8 @@
           }],
         ],
       },  # Debug
-      'Release': {
+      'ReleaseBase': {
+        'abstract': 1,
         'variables': {
           'v8_enable_slow_dchecks%': 0,
         },
@@ -1343,7 +1348,7 @@
                 'FavorSizeOrSpeed': '0',
                 'StringPooling': 'true',
                 'conditions': [
-                  ['component=="shared_library"', {
+                  ['component=="shared_library" or force_dynamic_crt==1', {
                     'RuntimeLibrary': '2',  #/MD
                   }, {
                     'RuntimeLibrary': '0',  #/MT
@@ -1364,6 +1369,27 @@
           }],
         ],  # conditions
       },  # Release
+      'Release': {
+        'inherit_from': ['ReleaseBase'],
+      },  # Debug
+      'conditions': [
+        [ 'OS=="win"', {
+          # TODO(bradnelson): add a gyp mechanism to make this more graceful.
+          'Debug_x64': {
+            'inherit_from': ['DebugBaseCommon'],
+            'conditions': [
+              ['v8_optimized_debug==0', {
+                'inherit_from': ['DebugBase0'],
+              }, {
+                'inherit_from': ['DebugBase1'],
+              }],
+            ],
+          },
+          'Release_x64': {
+            'inherit_from': ['ReleaseBase'],
+          },
+        }],
+      ],
     },  # configurations
   },  # target_defaults
 }

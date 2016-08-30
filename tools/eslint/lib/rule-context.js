@@ -1,8 +1,6 @@
 /**
  * @fileoverview RuleContext utility for rules
  * @author Nicholas C. Zakas
- * @copyright 2013 Nicholas C. Zakas. All rights reserved.
- * See LICENSE file in root directory for full license.
  */
 "use strict";
 
@@ -10,25 +8,28 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-var RuleFixer = require("./util/rule-fixer");
+const RuleFixer = require("./util/rule-fixer");
 
 //------------------------------------------------------------------------------
 // Constants
 //------------------------------------------------------------------------------
 
-var PASSTHROUGHS = [
-    "getAllComments",
+const PASSTHROUGHS = [
     "getAncestors",
-    "getComments",
     "getDeclaredVariables",
     "getFilename",
+    "getScope",
+    "markVariableAsUsed",
+
+    // DEPRECATED
+    "getAllComments",
+    "getComments",
     "getFirstToken",
     "getFirstTokens",
     "getJSDocComment",
     "getLastToken",
     "getLastTokens",
     "getNodeByRangeIndex",
-    "getScope",
     "getSource",
     "getSourceLines",
     "getTokenAfter",
@@ -37,8 +38,7 @@ var PASSTHROUGHS = [
     "getTokens",
     "getTokensAfter",
     "getTokensBefore",
-    "getTokensBetween",
-    "markVariableAsUsed"
+    "getTokensBetween"
 ];
 
 //------------------------------------------------------------------------------
@@ -111,12 +111,11 @@ RuleContext.prototype = {
      * @returns {void}
      */
     report: function(nodeOrDescriptor, location, message, opts) {
-        var descriptor,
-            fix = null;
 
         // check to see if it's a new style call
         if (arguments.length === 1) {
-            descriptor = nodeOrDescriptor;
+            const descriptor = nodeOrDescriptor;
+            let fix = null;
 
             // if there's a fix specified, get it
             if (typeof descriptor.fix === "function") {
