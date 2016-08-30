@@ -686,9 +686,9 @@ THREADED_TEST(Regress433458) {
 
 static bool security_check_value = false;
 
-
 static bool SecurityTestCallback(Local<v8::Context> accessing_context,
-                                 Local<v8::Object> accessed_object) {
+                                 Local<v8::Object> accessed_object,
+                                 Local<v8::Value> data) {
   return security_check_value;
 }
 
@@ -773,4 +773,29 @@ TEST(PrototypeGetterAccessCheck) {
     CompileRun("f();");
     CHECK(try_catch.HasCaught());
   }
+}
+
+static void check_receiver(Local<String> name,
+                           const v8::PropertyCallbackInfo<v8::Value>& info) {
+  CHECK(info.This()->IsObject());
+}
+
+TEST(Regress609134) {
+  v8::internal::FLAG_allow_natives_syntax = true;
+  LocalContext env;
+  v8::Isolate* isolate = env->GetIsolate();
+  v8::HandleScope scope(isolate);
+  auto fun_templ = v8::FunctionTemplate::New(isolate);
+  fun_templ->InstanceTemplate()->SetNativeDataProperty(v8_str("foo"),
+                                                       check_receiver);
+
+  CHECK(env->Global()
+            ->Set(env.local(), v8_str("Fun"),
+                  fun_templ->GetFunction(env.local()).ToLocalChecked())
+            .FromJust());
+
+  CompileRun(
+      "var f = new Fun();"
+      "Number.prototype.__proto__ = f;"
+      "[42][0].foo");
 }

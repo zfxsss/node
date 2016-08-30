@@ -2,8 +2,6 @@
  * @fileoverview Config file operations. This file must be usable in the browser,
  * so no Node-specific code can be here.
  * @author Nicholas C. Zakas
- * @copyright 2015 Nicholas C. Zakas. All rights reserved.
- * See LICENSE file in root directory for full license.
  */
 "use strict";
 
@@ -11,21 +9,20 @@
 // Requirements
 //------------------------------------------------------------------------------
 
-var lodash = require("lodash"),
-    debug = require("debug"),
-    Environments = require("./environments");
+const Environments = require("./environments");
+
+const debug = require("debug")("eslint:config-ops");
 
 //------------------------------------------------------------------------------
 // Private
 //------------------------------------------------------------------------------
 
-debug = debug("eslint:config-ops");
-
-var RULE_SEVERITY_STRINGS = ["off", "warn", "error"],
+const RULE_SEVERITY_STRINGS = ["off", "warn", "error"],
     RULE_SEVERITY = RULE_SEVERITY_STRINGS.reduce(function(map, value, index) {
         map[value] = index;
         return map;
-    }, {});
+    }, {}),
+    VALID_SEVERITIES = [0, 1, 2, "off", "warn", "error"];
 
 //------------------------------------------------------------------------------
 // Public Interface
@@ -54,7 +51,7 @@ module.exports = {
      */
     createEnvironmentConfig: function(env) {
 
-        var envConfig = this.createEmptyConfig();
+        const envConfig = this.createEmptyConfig();
 
         if (env) {
 
@@ -63,16 +60,16 @@ module.exports = {
             Object.keys(env).filter(function(name) {
                 return env[name];
             }).forEach(function(name) {
-                var environment = Environments.get(name);
+                const environment = Environments.get(name);
 
                 if (environment) {
                     debug("Creating config for environment " + name);
                     if (environment.globals) {
-                        lodash.assign(envConfig.globals, environment.globals);
+                        Object.assign(envConfig.globals, environment.globals);
                     }
 
                     if (environment.parserOptions) {
-                        lodash.assign(envConfig.parserOptions, environment.parserOptions);
+                        Object.assign(envConfig.parserOptions, environment.parserOptions);
                     }
                 }
             });
@@ -135,8 +132,8 @@ module.exports = {
          * (https://github.com/KyleAMathews/deepmerge)
          * and modified to meet our needs.
          */
-        var array = Array.isArray(src) || Array.isArray(target);
-        var dst = array && [] || {};
+        const array = Array.isArray(src) || Array.isArray(target);
+        let dst = array && [] || {};
 
         combine = !!combine;
         isRule = !!isRule;
@@ -203,7 +200,7 @@ module.exports = {
 
         if (config.rules) {
             Object.keys(config.rules).forEach(function(ruleId) {
-                var ruleConfig = config.rules[ruleId];
+                const ruleConfig = config.rules[ruleId];
 
                 if (typeof ruleConfig === "string") {
                     config.rules[ruleId] = RULE_SEVERITY[ruleConfig.toLowerCase()] || 0;
@@ -225,7 +222,7 @@ module.exports = {
 
         if (config.rules) {
             Object.keys(config.rules).forEach(function(ruleId) {
-                var ruleConfig = config.rules[ruleId];
+                const ruleConfig = config.rules[ruleId];
 
                 if (typeof ruleConfig === "number") {
                     config.rules[ruleId] = RULE_SEVERITY_STRINGS[ruleConfig] || RULE_SEVERITY_STRINGS[0];
@@ -243,13 +240,37 @@ module.exports = {
      */
     isErrorSeverity: function(ruleConfig) {
 
-        var severity = Array.isArray(ruleConfig) ? ruleConfig[0] : ruleConfig;
+        let severity = Array.isArray(ruleConfig) ? ruleConfig[0] : ruleConfig;
 
         if (typeof severity === "string") {
             severity = RULE_SEVERITY[severity.toLowerCase()] || 0;
         }
 
         return (typeof severity === "number" && severity === 2);
-    }
+    },
 
+    /**
+     * Checks whether a given config has valid severity or not.
+     * @param {number|string|Array} ruleConfig - The configuration for an individual rule.
+     * @returns {boolean} `true` if the configuration has valid severity.
+     */
+    isValidSeverity: function(ruleConfig) {
+        let severity = Array.isArray(ruleConfig) ? ruleConfig[0] : ruleConfig;
+
+        if (typeof severity === "string") {
+            severity = severity.toLowerCase();
+        }
+        return VALID_SEVERITIES.indexOf(severity) !== -1;
+    },
+
+    /**
+     * Checks whether every rule of a given config has valid severity or not.
+     * @param {Object} config - The configuration for rules.
+     * @returns {boolean} `true` if the configuration has valid severity.
+     */
+    isEverySeverityValid: function(config) {
+        return Object.keys(config).every(function(ruleId) {
+            return this.isValidSeverity(config[ruleId]);
+        }, this);
+    }
 };

@@ -34,7 +34,6 @@ using v8::FunctionCallbackInfo;
 using v8::FunctionTemplate;
 using v8::HandleScope;
 using v8::Integer;
-using v8::Isolate;
 using v8::Local;
 using v8::Number;
 using v8::Object;
@@ -241,6 +240,22 @@ static void After(uv_fs_t *req) {
         }
         break;
 
+      case UV_FS_REALPATH:
+        link = StringBytes::Encode(env->isolate(),
+                                   static_cast<const char*>(req->ptr),
+                                   req_wrap->encoding_);
+        if (link.IsEmpty()) {
+          argv[0] = UVException(env->isolate(),
+                                UV_EINVAL,
+                                req_wrap->syscall(),
+                                "Invalid character encoding for link",
+                                req->path,
+                                req_wrap->data());
+        } else {
+          argv[1] = link;
+        }
+        break;
+
       case UV_FS_READ:
         // Buffer interface
         argv[1] = Integer::New(env->isolate(), req->result);
@@ -311,10 +326,13 @@ static void After(uv_fs_t *req) {
 
 // This struct is only used on sync fs calls.
 // For async calls FSReqWrap is used.
-struct fs_req_wrap {
+class fs_req_wrap {
+ public:
   fs_req_wrap() {}
   ~fs_req_wrap() { uv_fs_req_cleanup(&req); }
   uv_fs_t req;
+
+ private:
   DISALLOW_COPY_AND_ASSIGN(fs_req_wrap);
 };
 
@@ -401,10 +419,10 @@ static void Close(const FunctionCallbackInfo<Value>& args) {
 
 
 Local<Value> BuildStatsObject(Environment* env, const uv_stat_t* s) {
+  EscapableHandleScope handle_scope(env->isolate());
+
   // If you hit this assertion, you forgot to enter the v8::Context first.
   CHECK_EQ(env->context(), env->isolate()->GetCurrentContext());
-
-  EscapableHandleScope handle_scope(env->isolate());
 
   // The code below is very nasty-looking but it prevents a segmentation fault
   // when people run JS code like the snippet below. It's apparently more
@@ -863,6 +881,41 @@ static void MKDir(const FunctionCallbackInfo<Value>& args) {
   }
 }
 
+static void RealPath(const FunctionCallbackInfo<Value>& args) {
+  Environment* env = Environment::GetCurrent(args);
+
+  const int argc = args.Length();
+
+  if (argc < 1)
+    return TYPE_ERROR("path required");
+
+  BufferValue path(env->isolate(), args[0]);
+  ASSERT_PATH(path)
+
+  const enum encoding encoding = ParseEncoding(env->isolate(), args[1], UTF8);
+
+  Local<Value> callback = Null(env->isolate());
+  if (argc == 3)
+    callback = args[2];
+
+  if (callback->IsObject()) {
+    ASYNC_CALL(realpath, callback, encoding, *path);
+  } else {
+    SYNC_CALL(realpath, *path, *path);
+    const char* link_path = static_cast<const char*>(SYNC_REQ.ptr);
+    Local<Value> rc = StringBytes::Encode(env->isolate(),
+                                          link_path,
+                                          encoding);
+    if (rc.IsEmpty()) {
+      return env->ThrowUVException(UV_EINVAL,
+                                   "realpath",
+                                   "Invalid character encoding for path",
+                                   *path);
+    }
+    args.GetReturnValue().Set(rc);
+  }
+}
+
 static void ReadDir(const FunctionCallbackInfo<Value>& args) {
   Environment* env = Environment::GetCurrent(args);
 
@@ -1025,38 +1078,23 @@ static void WriteBuffers(const FunctionCallbackInfo<Value>& args) {
   int64_t pos = GET_OFFSET(args[2]);
   Local<Value> req = args[3];
 
-  uint32_t chunkCount = chunks->Length();
+  MaybeStackBuffer<uv_buf_t> iovs(chunks->Length());
 
-  uv_buf_t s_iovs[1024];  // use stack allocation when possible
-  uv_buf_t* iovs;
-
-  if (chunkCount > arraysize(s_iovs))
-    iovs = new uv_buf_t[chunkCount];
-  else
-    iovs = s_iovs;
-
-  for (uint32_t i = 0; i < chunkCount; i++) {
+  for (uint32_t i = 0; i < iovs.length(); i++) {
     Local<Value> chunk = chunks->Get(i);
 
-    if (!Buffer::HasInstance(chunk)) {
-      if (iovs != s_iovs)
-        delete[] iovs;
+    if (!Buffer::HasInstance(chunk))
       return env->ThrowTypeError("Array elements all need to be buffers");
-    }
 
     iovs[i] = uv_buf_init(Buffer::Data(chunk), Buffer::Length(chunk));
   }
 
   if (req->IsObject()) {
-    ASYNC_CALL(write, req, UTF8, fd, iovs, chunkCount, pos)
-    if (iovs != s_iovs)
-      delete[] iovs;
+    ASYNC_CALL(write, req, UTF8, fd, *iovs, iovs.length(), pos)
     return;
   }
 
-  SYNC_CALL(write, nullptr, fd, iovs, chunkCount, pos)
-  if (iovs != s_iovs)
-    delete[] iovs;
+  SYNC_CALL(write, nullptr, fd, *iovs, iovs.length(), pos)
   args.GetReturnValue().Set(SYNC_RESULT);
 }
 
@@ -1432,6 +1470,7 @@ void InitFs(Local<Object> target,
   env->SetMethod(target, "writeBuffer", WriteBuffer);
   env->SetMethod(target, "writeBuffers", WriteBuffers);
   env->SetMethod(target, "writeString", WriteString);
+  env->SetMethod(target, "realpath", RealPath);
 
   env->SetMethod(target, "chmod", Chmod);
   env->SetMethod(target, "fchmod", FChmod);
