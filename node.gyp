@@ -77,6 +77,7 @@
       'lib/internal/child_process.js',
       'lib/internal/cluster.js',
       'lib/internal/freelist.js',
+      'lib/internal/fs.js',
       'lib/internal/linkedlist.js',
       'lib/internal/net.js',
       'lib/internal/module.js',
@@ -88,6 +89,7 @@
       'lib/internal/readline.js',
       'lib/internal/repl.js',
       'lib/internal/socket_list.js',
+      'lib/internal/url.js',
       'lib/internal/util.js',
       'lib/internal/v8_prof_polyfill.js',
       'lib/internal/v8_prof_processor.js',
@@ -157,6 +159,7 @@
         'src/node_main.cc',
         'src/node_os.cc',
         'src/node_revert.cc',
+        'src/node_url.cc',
         'src/node_util.cc',
         'src/node_v8.cc',
         'src/node_stat_watcher.cc',
@@ -258,8 +261,8 @@
         }],
         [ 'node_use_bundled_v8=="true"', {
           'dependencies': [
-            'deps/v8/tools/gyp/v8.gyp:v8',
-            'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
+            'deps/v8/src/v8.gyp:v8',
+            'deps/v8/src/v8.gyp:v8_libplatform'
           ],
         }],
         [ 'node_use_v8_platform=="true"', {
@@ -322,6 +325,7 @@
           'dependencies': [
             'deps/v8_inspector/third_party/v8_inspector/platform/'
                 'v8_inspector/v8_inspector.gyp:v8_inspector_stl',
+            'v8_inspector_compress_protocol_json#host',
           ],
           'include_dirs': [
             'deps/v8_inspector/third_party/v8_inspector',
@@ -462,7 +466,7 @@
           'defines': [ 'NODE_NO_BROWSER_GLOBALS' ],
         } ],
         [ 'node_use_bundled_v8=="true" and v8_postmortem_support=="true"', {
-          'dependencies': [ 'deps/v8/tools/gyp/v8.gyp:postmortem-metadata' ],
+          'dependencies': [ 'deps/v8/src/v8.gyp:postmortem-metadata' ],
           'conditions': [
             # -force_load is not applicable for the static library
             [ 'node_target_type!="static_library"', {
@@ -649,6 +653,34 @@
           ],
         } ]
       ]
+    },
+    {
+      'target_name': 'v8_inspector_compress_protocol_json',
+      'type': 'none',
+      'toolsets': ['host'],
+      'conditions': [
+        [ 'v8_inspector=="true"', {
+          'actions': [
+            {
+              'action_name': 'v8_inspector_compress_protocol_json',
+              'process_outputs_as_sources': 1,
+              'inputs': [
+                'deps/v8_inspector/third_party/'
+                    'v8_inspector/platform/v8_inspector/js_protocol.json',
+              ],
+              'outputs': [
+                '<(SHARED_INTERMEDIATE_DIR)/v8_inspector_protocol_json.h',
+              ],
+              'action': [
+                'python',
+                'tools/compress_json.py',
+                '<@(_inputs)',
+                '<@(_outputs)',
+              ],
+            },
+          ],
+        }],
+      ],
     },
     {
       'target_name': 'node_js2c',
@@ -869,13 +901,13 @@
         }],
         [ 'node_use_v8_platform=="true"', {
           'dependencies': [
-            'deps/v8/tools/gyp/v8.gyp:v8_libplatform',
+            'deps/v8/src/v8.gyp:v8_libplatform',
           ],
         }],
         [ 'node_use_bundled_v8=="true"', {
           'dependencies': [
-            'deps/v8/tools/gyp/v8.gyp:v8',
-            'deps/v8/tools/gyp/v8.gyp:v8_libplatform'
+            'deps/v8/src/v8.gyp:v8',
+            'deps/v8/src/v8.gyp:v8_libplatform'
           ],
         }],
       ]

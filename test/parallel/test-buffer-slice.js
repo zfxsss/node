@@ -52,7 +52,8 @@ assert.equal(buf.slice('0', '-111'), '');
 
 // try to slice a zero length Buffer
 // see https://github.com/joyent/node/issues/5881
-Buffer.alloc(0).slice(0, 1);
+assert.doesNotThrow(() => Buffer.alloc(0).slice(0, 1));
+assert.strictEqual(Buffer.alloc(0).slice(0, 1).length, 0);
 
 {
   // Single argument slice
@@ -61,3 +62,13 @@ Buffer.alloc(0).slice(0, 1);
 
 // slice(0,0).length === 0
 assert.strictEqual(0, Buffer.from('hello').slice(0, 0).length);
+
+{
+  // Regression tests for https://github.com/nodejs/node/issues/9096
+  const buf = Buffer.from('abcd');
+  assert.strictEqual(buf.slice(buf.length / 3).toString(), 'bcd');
+  assert.strictEqual(
+    buf.slice(buf.length / 3, buf.length).toString(),
+    'bcd'
+  );
+}

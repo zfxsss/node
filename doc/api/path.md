@@ -135,7 +135,7 @@ added: v0.1.25
 * `path` {String}
 
 The `path.extname()` method returns the extension of the `path`, from the last
-occurance of the `.` (period) character to end of string in the last portion of
+occurrence of the `.` (period) character to end of string in the last portion of
 the `path`.  If there is no `.` in the last portion of the `path`, or if the
 first character of the basename of `path` (see `path.basename()`) is `.`, then
 an empty string is returned.
@@ -272,14 +272,14 @@ path.isAbsolute('.')           // false
 
 A [`TypeError`][] is thrown if `path` is not a string.
 
-## path.join([path[, ...]])
+## path.join([...paths])
 <!-- YAML
 added: v0.1.16
 -->
 
-* `[path[, ...]]` {String} A sequence of path segments
+* `...paths` {String} A sequence of path segments
 
-The `path.join()` method join all given `path` segments together using the
+The `path.join()` method joins all given `path` segments together using the
 platform specific separator as a delimiter, then normalizes the resulting path.
 
 Zero-length `path` segments are ignored. If the joined path string is a
@@ -438,12 +438,12 @@ path.relative('C:\\orandea\\test\\aaa', 'C:\\orandea\\impl\\bbb')
 
 A [`TypeError`][] is thrown if neither `from` nor `to` is a string.
 
-## path.resolve([path[, ...]])
+## path.resolve([...paths])
 <!-- YAML
 added: v0.3.4
 -->
 
-* `[path[, ...]]` {String} A sequence of paths or path segments
+* `...paths` {String} A sequence of paths or path segments
 
 The `path.resolve()` method resolves a sequence of paths or path segments into
 an absolute path.

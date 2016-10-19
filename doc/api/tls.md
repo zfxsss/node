@@ -96,7 +96,7 @@ OpenSSL command-line interface to generate such parameters:
 openssl dhparam -outform PEM -out dhparam.pem 2048
 ```
 
-If using Perfect Foward Secrecy using `ECDHE`, Diffie-Hellman parameters are
+If using Perfect Forward Secrecy using `ECDHE`, Diffie-Hellman parameters are
 not required and a default ECDHE curve will be used. The `ecdheCurve` property
 can be used when creating a TLS Server to specify the name of an
 alternative curve to use.
@@ -1191,7 +1191,7 @@ As with checking for the server [`secureConnection`](#tls_event_secureconnection
 event, `pair.cleartext.authorized` should be inspected to confirm whether the
 certificate used is properly authorized.
 
-## tls.createSecurePair([context][, isServer][, requestCert][, rejectUnauthorized][, options])
+### tls.createSecurePair([context][, isServer][, requestCert][, rejectUnauthorized][, options])
 <!-- YAML
 added: v0.3.2
 deprecated: v0.11.3

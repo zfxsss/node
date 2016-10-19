@@ -129,7 +129,7 @@ See more details in [`fs.watch()`][].
 
 The `filename` argument may not be provided depending on operating system
 support. If `filename` is provided, it will be provided as a `Buffer` if
-`fs.watch()` is called with it's `encoding` option set to `'buffer'`, otherwise
+`fs.watch()` is called with its `encoding` option set to `'buffer'`, otherwise
 `filename` will be a string.
 
 ```js
@@ -346,6 +346,93 @@ fs.access('/etc/passwd', fs.constants.R_OK | fs.constants.W_OK, (err) => {
   console.log(err ? 'no access!' : 'can read/write');
 });
 ```
+
+Using `fs.access()` to check for the accessibility of a file before calling
+`fs.open()`, `fs.readFile()` or `fs.writeFile()` is not recommended. Doing
+so introduces a race condition, since other processes may change the file's
+state between the two calls. Instead, user code should open/read/write the
+file directly and handle the error raised if the file is not accessible.
+
+For example:
+
+
+**write (NOT RECOMMENDED)**
+
+```js
+fs.access('myfile', (err) => {
+  if (!err) {
+    console.error('myfile already exists');
+    return;
+  }
+
+  fs.open('myfile', 'wx', (err, fd) => {
+    if (err) throw err;
+    writeMyData(fd);
+  });
+});
+```
+
+**write (RECOMMENDED)**
+
+```js
+fs.open('myfile', 'wx', (err, fd) => {
+  if (err) {
+    if (err.code === "EEXIST") {
+      console.error('myfile already exists');
+      return;
+    } else {
+      throw err;
+    }
+  }
+
+  writeMyData(fd);
+});
+```
+
+**read (NOT RECOMMENDED)**
+
+```js
+fs.access('myfile', (err) => {
+  if (err) {
+    if (err.code === "ENOENT") {
+      console.error('myfile does not exist');
+      return;
+    } else {
+      throw err;
+    }
+  }
+
+  fs.open('myfile', 'r', (err, fd) => {
+    if (err) throw err;
+    readMyData(fd);
+  });
+});
+```
+
+**read (RECOMMENDED)**
+
+```js
+fs.open('myfile', 'r', (err, fd) => {
+  if (err) {
+    if (err.code === "ENOENT") {
+      console.error('myfile does not exist');
+      return;
+    } else {
+      throw err;
+    }
+  }
+
+  readMyData(fd);
+});
+```
+
+The "not recommended" examples above check for accessibility and then use the
+file; the "recommended" examples are better because they use the file directly
+and handle the error, if any.
+
+In general, check for the accessibility of a file only if the file won’t be
+used directly, for example when its accessibility is a signal from another
+process.
 
 ## fs.accessSync(path[, mode])
 <!-- YAML
@@ -606,25 +693,104 @@ fs.exists('/etc/passwd', (exists) => {
 });
 ```
 
-`fs.exists()` should not be used to check if a file exists before calling
-`fs.open()`. Doing so introduces a race condition since other processes may
-change the file's state between the two calls. Instead, user code should
-call `fs.open()` directly and handle the error raised if the file is
-non-existent.
+**Note that the parameter to this callback is not consistent with other
+Node.js callbacks.** Normally, the first parameter to a Node.js callback is
+an `err` parameter, optionally followed by other parameters. The
+`fs.exists()` callback has only one boolean parameter. This is one reason
+`fs.access()` is recommended instead of `fs.exists()`.
+
+Using `fs.exists()` to check for the existence of a file before calling
+`fs.open()`, `fs.readFile()` or `fs.writeFile()` is not recommended. Doing
+so introduces a race condition, since other processes may change the file's
+state between the two calls. Instead, user code should open/read/write the
+file directly and handle the error raised if the file does not exist.
+
+For example:
+
+**write (NOT RECOMMENDED)**
+
+```js
+fs.exists('myfile', (exists) => {
+  if (exists) {
+    console.error('myfile already exists');
+  } else {
+    fs.open('myfile', 'wx', (err, fd) => {
+      if (err) throw err;
+      writeMyData(fd);
+    });
+  }
+});
+```
+
+**write (RECOMMENDED)**
+
+```js
+fs.open('myfile', 'wx', (err, fd) => {
+  if (err) {
+    if (err.code === "EEXIST") {
+      console.error('myfile already exists');
+      return;
+    } else {
+      throw err;
+    }
+  }
+  writeMyData(fd);
+});
+```
+
+**read (NOT RECOMMENDED)**
+
+```js
+fs.exists('myfile', (exists) => {
+  if (exists) {
+    fs.open('myfile', 'r', (err, fd) => {
+      readMyData(fd);
+    });
+  } else {
+    console.error('myfile does not exist');
+  }
+});
+```
+
+**read (RECOMMENDED)**
+
+```js
+fs.open('myfile', 'r', (err, fd) => {
+  if (err) {
+    if (err.code === "ENOENT") {
+      console.error('myfile does not exist');
+      return;
+    } else {
+      throw err;
+    }
+  } else {
+    readMyData(fd);
+  }
+});
+```
+
+The "not recommended" examples above check for existence and then use the
+file; the "recommended" examples are better because they use the file directly
+and handle the error, if any.
+
+In general, check for the existence of a file only if the file won’t be
+used directly, for example when its existence is a signal from another
+process.
 
 ## fs.existsSync(path)
 <!-- YAML
 added: v0.1.21
-deprecated: v1.0.0
 -->
-
-> Stability: 0 - Deprecated: Use [`fs.statSync()`][] or [`fs.accessSync()`][]
-> instead.
 
 * `path` {String | Buffer}
 
 Synchronous version of [`fs.exists()`][].
 Returns `true` if the file exists, `false` otherwise.
+
+Note that `fs.exists()` is deprecated, but `fs.existsSync()` is not.
+(The `callback` parameter to `fs.exists()` accepts parameters that are
+inconsistent with other Node.js callbacks. `fs.existsSync()` does not use
+a callback.)
 
 ## fs.fchmod(fd, mode, callback)
 <!-- YAML
@@ -1279,7 +1445,7 @@ added: v0.1.31
 Asynchronous realpath(3). The `callback` gets two arguments `(err,
 resolvedPath)`. May use `process.cwd` to resolve relative paths.
 
-Only paths that can be converted to UTF8 strings are supported. 
+Only paths that can be converted to UTF8 strings are supported.
 
 The optional `options` argument can be a string specifying an encoding, or an
 object with an `encoding` property specifying the character encoding to use for
@@ -1357,6 +1523,16 @@ added: v0.0.2
 Asynchronous stat(2). The callback gets two arguments `(err, stats)` where
 `stats` is a [`fs.Stats`][] object.  See the [`fs.Stats`][] section for more
 information.
+
+In case of an error, the `err.code` will be one of [Common System Errors][].
+
+Using `fs.stat()` to check for the existence of a file before calling
+`fs.open()`, `fs.readFile()` or `fs.writeFile()` is not recommended.
+Instead, user code should open/read/write the file directly and handle the
+error raised if the file is not available.
+
+To check if a file exists without manipulating it afterwards, [`fs.access()`]
+is recommended.
 
 ## fs.statSync(path)
 <!-- YAML
@@ -1478,13 +1654,15 @@ added: v0.4.2
 
 Change file timestamps of the file referenced by the supplied path.
 
-Note: the arguments `atime` and `mtime` of the following related functions does
-follow the below rules:
+Note: the arguments `atime` and `mtime` of the following related functions
+follow these rules:
 
-- If the value is a numberable string like `'123456789'`, the value would get
-  converted to corresponding number.
-- If the value is `NaN` or `Infinity`, the value would get converted to
-  `Date.now()`.
+- The value should be a Unix timestamp in seconds. For example, `Date.now()`
+  returns milliseconds, so it should be divided by 1000 before passing it in.
+- If the value is a numeric string like `'123456789'`, the value will get
+  converted to the corresponding number.
+- If the value is `NaN` or `Infinity`, the value will get converted to
+  `Date.now() / 1000`.
 
 ## fs.utimesSync(path, atime, mtime)
 <!-- YAML
@@ -2006,7 +2184,6 @@ The following constants are meant for use with the [`fs.Stats`][] object's
 [`Buffer`]: buffer.html#buffer_buffer
 [Caveats]: #fs_caveats
 [`fs.access()`]: #fs_fs_access_path_mode_callback
-[`fs.accessSync()`]: #fs_fs_accesssync_path_mode
 [`fs.appendFile()`]: fs.html#fs_fs_appendfile_file_data_options_callback
 [`fs.exists()`]: fs.html#fs_fs_exists_path_callback
 [`fs.fstat()`]: #fs_fs_fstat_fd_callback
@@ -2019,7 +2196,6 @@ The following constants are meant for use with the [`fs.Stats`][] object's
 [`fs.readFile`]: #fs_fs_readfile_file_options_callback
 [`fs.stat()`]: #fs_fs_stat_path_callback
 [`fs.Stats`]: #fs_class_fs_stats
-[`fs.statSync()`]: #fs_fs_statsync_path
 [`fs.utimes()`]: #fs_fs_futimes_fd_atime_mtime_callback
 [`fs.watch()`]: #fs_fs_watch_filename_options_listener
 [`fs.write()`]: #fs_fs_write_fd_buffer_offset_length_position_callback
@@ -2033,7 +2209,7 @@ The following constants are meant for use with the [`fs.Stats`][] object's
 [MDN-Date]: https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Date
 [Readable Stream]: stream.html#stream_class_stream_readable
 [Writable Stream]: stream.html#stream_class_stream_writable
-[inode]: http://www.linux.org/threads/intro-to-inodes.4130
+[inode]: https://en.wikipedia.org/wiki/Inode
 [FS Constants]: #fs_fs_constants
 [`inotify`]: http://man7.org/linux/man-pages/man7/inotify.7.html
 [`kqueue`]: https://www.freebsd.org/cgi/man.cgi?kqueue
@@ -2041,3 +2217,4 @@ The following constants are meant for use with the [`fs.Stats`][] object's
 [`event ports`]: http://illumos.org/man/port_create
 [`ReadDirectoryChangesW`]: https://msdn.microsoft.com/en-us/library/windows/desktop/aa365465%28v=vs.85%29.aspx
 [`AHAFS`]: https://www.ibm.com/developerworks/aix/library/au-aix_event_infrastructure/
+[Common System Errors]: errors.html#errors_common_system_errors

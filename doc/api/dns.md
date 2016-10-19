@@ -6,9 +6,9 @@ The `dns` module contains functions belonging to two different categories:
 
 1) Functions that use the underlying operating system facilities to perform
 name resolution, and that do not necessarily perform any network communication.
-This category contains only one function: [`dns.lookup()`][]. __Developers
+This category contains only one function: [`dns.lookup()`][]. **Developers
 looking to perform name resolution in the same way that other applications on
-the same operating system behave should use [`dns.lookup()`][].__
+the same operating system behave should use [`dns.lookup()`][].**
 
 For example, looking up `nodejs.org`.
 
@@ -330,7 +330,7 @@ added: v0.1.27
 
 Uses the DNS protocol to resolve text queries (`TXT` records) for the
 `hostname`. The `addresses` argument passed to the `callback` function is
-is a two-dimentional array of the text records available for `hostname` (e.g.,
+is a two-dimensional array of the text records available for `hostname` (e.g.,
 `[ ['v=spf1 ip4:0.0.0.0 ', '~all' ] ]`). Each sub-array contains TXT chunks of
 one record. Depending on the use case, these could be either joined together or
 treated separately.

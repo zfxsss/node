@@ -285,6 +285,7 @@ The emitted warning can be inspected with [`process.on('warning')`][] and will
 have the additional `emitter`, `type` and `count` properties, referring to
 the event emitter instance, the event’s name and the number of attached
 listeners, respectively.
+Its `name` property is set to `'MaxListenersExceededWarning'`.
 
 ### emitter.addListener(eventName, listener)
 <!-- YAML
@@ -293,7 +294,7 @@ added: v0.1.26
 
 Alias for `emitter.on(eventName, listener)`.
 
-### emitter.emit(eventName[, arg1][, arg2][, ...])
+### emitter.emit(eventName[, ...args])
 <!-- YAML
 added: v0.1.26
 -->
